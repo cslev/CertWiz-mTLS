@@ -6,16 +6,38 @@ echo "  Client Certificate Generator"
 echo "=========================================="
 echo ""
 
-# Parse client name argument
-CLIENT_NAME=$1
+# Default values
+VALIDITY_DAYS=30
+CLIENT_NAME=""
 
-if [[ -z $CLIENT_NAME ]]; then
-  echo "❌ Error: No client name specified!"
-  echo ""
-  echo "Usage: $0 <client_name>"
-  echo "Example: $0 john-doe"
-  echo ""
-  exit 1
+# Help function
+show_help() {
+    echo "Usage: $0 -n <client_name> [-d <days>]"
+    echo ""
+    echo "Options:"
+    echo "  -n    Client name (required)"
+    echo "  -d    Certificate validity in days (default: 30)"
+    echo "  -h    Show this help message"
+    echo ""
+    echo "Example:"
+    echo "  $0 -n john-doe -d 365"
+    exit 1
+}
+
+# Parse command line arguments using getopts
+while getopts "n:d:h" opt; do
+    case $opt in
+        n) CLIENT_NAME="$OPTARG" ;;
+        d) VALIDITY_DAYS="$OPTARG" ;;
+        h) show_help ;;
+        \?) echo "❌ Invalid option: -$OPTARG"; show_help ;;
+    esac
+done
+
+# Validation
+if [[ -z "$CLIENT_NAME" ]]; then
+    echo "❌ Error: Client name is required!"
+    show_help
 fi
 
 # Set up directories
@@ -52,8 +74,8 @@ fi
 
 # Generate Certificate Signing Request (CSR)
 echo "📝 Creating Certificate Signing Request (CSR)..."
-SUBJ="/CN=client-${CLIENT_NAME}"
-echo "   - Common Name (CN): client-${CLIENT_NAME}"
+SUBJ="/CN=${CLIENT_NAME}"
+echo "   - Common Name (CN): ${CLIENT_NAME}"
 openssl req \
   -new \
   -key "$CLIENT_DIR/${CLIENT_NAME}.key" \
@@ -70,14 +92,14 @@ fi
 
 # Sign the client certificate with CA
 echo "✍️  Signing client certificate with CA..."
-echo "   - Validity: 1095 days (3 years)"
+echo "   - Validity: $VALIDITY_DAYS days"
 openssl x509 \
   -req \
   -in "$CLIENT_DIR/${CLIENT_NAME}.csr" \
   -CA "$CA_DIR/ca.crt" \
   -CAkey "$CA_DIR/ca.key" \
   -CAcreateserial \
-  -days 1095 \
+  -days "$VALIDITY_DAYS" \
   -out "$CLIENT_DIR/${CLIENT_NAME}.crt"
 
 if [ $? -eq 0 ]; then
