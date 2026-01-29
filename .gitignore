@@ -217,3 +217,5 @@ certs/client/*.key
 certs/client/*.crt
 certs/client/*.csr
 certs/client/*.p12
+certs/crl.pem
+certs/db/
