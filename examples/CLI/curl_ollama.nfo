@@ -1,0 +1,9 @@
+curl \
+  --cert-type P12 \
+  --cert <YOUR_CLIENT_MTLS_P12_FILE>:<YOUR_CLIENT_MTLS_PASSWORD> \
+  -X POST https://<YOUR_OLLAMA_API_DOMAIN>/api/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "mistral:7b",
+    "prompt": "Why is the sky blue? Answer in 10 words."
+  }'
