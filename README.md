@@ -1,5 +1,13 @@
 # CertWiz-mTLS
-A lightweight, end-to-end toolkit for implementing Mutual TLS (mTLS), automate processes, and provide examples and templates for NGINX reverse proxies, python-based clients, and more
+CertWiz-mTLS is a comprehensive toolkit designed to simplify Mutual TLS (mTLS) implementation. It provides **automated bash scripts** for generating Certificate Authorities (CA), server certificates, and encrypted client keys with PKCS#12 bundles. 
+
+The repository includes ready-to-use examples for integrating mTLS with **Python applications** (using `requests`), **CLI tools** (like `curl`), and **NGINX reverse proxies** (coming soon), making secure service-to-service communication accessible and easy to deploy.
+
+<p align="center">
+  <img src="assets/certwiz-mtls.png" alt="CertWiz-mTLS Logo" width="50%">
+  <br>
+  <em>image generate with Nano Banana</em>
+</p>
 
 ## Getting Started
 
