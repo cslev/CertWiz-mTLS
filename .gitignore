@@ -205,3 +205,15 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Certificate files - mTLS
+certs/ca/*.key
+certs/ca/*.crt
+certs/ca/*.srl
+certs/server/*.key
+certs/server/*.crt
+certs/server/*.csr
+certs/client/*.key
+certs/client/*.crt
+certs/client/*.csr
+certs/client/*.p12
