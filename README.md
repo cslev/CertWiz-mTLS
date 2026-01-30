@@ -17,19 +17,9 @@ git clone https://github.com/yourusername/CertWiz-mTLS.git
 cd CertWiz-mTLS
 ```
 
-### Set Up Python Environment
-```bash
-# Create a virtual environment
-python3 -m venv .venv
+### Python Environment & Examples
 
-# Activate the virtual environment
-source .venv/bin/activate  # On Linux/macOS
-# or
-.venv\Scripts\activate     # On Windows
-
-# Install required packages
-pip install -r requirements.txt
-```
+For instructions on setting up the Python environment and running the examples, please refer to [examples/python/README.md](examples/python/README.md).
 
 ## Certificate Generation
 
