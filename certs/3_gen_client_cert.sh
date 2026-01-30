@@ -74,6 +74,29 @@ echo ""
 # Switch to profile dir for Openssl config relative paths
 cd "$PROFILE_DIR"
 
+# Check for existing valid certificate for this name and revoke it
+if [ -f "db/index.txt" ]; then
+    # Parse index.txt for Valid (V) entries with matching CN
+    # Format: V <tab> Expiry <tab> <empty> <tab> Serial <tab> ...
+    SERIALS=$(awk -F'\t' -v name="/CN=${CLIENT_NAME}" '$1 == "V" && $6 == name {print $4}' db/index.txt)
+
+    if [ -n "$SERIALS" ]; then
+        echo "⚠️  Found existing valid certificate(s) for '${CLIENT_NAME}'. Revoking before regeneration..."
+        for SERIAL in $SERIALS; do
+             if [ -f "db/newcerts/${SERIAL}.pem" ]; then
+                 echo "   - Revoking Serial: ${SERIAL}"
+                 openssl ca -config openssl.cnf -revoke "db/newcerts/${SERIAL}.pem" -batch
+             else
+                 echo "⚠️  Warning: Certificate for Serial ${SERIAL} valid in DB but missing in newcerts/. Cannot revoke automatically."
+             fi
+        done
+        # Update CRL
+        openssl ca -config openssl.cnf -gencrl -out "crl.pem"
+        echo "✅ Revocation complete. Proceeding with new generation."
+        echo ""
+    fi
+fi
+
 # Generate client private key
 if [ "$ENCRYPT_KEY" = true ]; then
     echo "🔑 Generating encrypted client private key (2048-bit RSA with AES-256)..."
