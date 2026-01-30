@@ -33,19 +33,22 @@ pip install -r requirements.txt
 
 ## Certificate Generation
 
-To generate certificates for mTLS, use the scripts in the `certs/` directory:
+To generate certificates for mTLS, use the scripts in the `certs/` directory. All scripts require a `-p <profile>` argument to isolate different CAs.
 
 ```bash
 cd certs
 
 # 1. Generate Certificate Authority (CA)
-./1_gen_ca.sh
+./1_gen_ca.sh -p my-profile
 
 # 2. Generate server certificate
-./2_gen_server_cert.sh
+./2_gen_server_cert.sh -p my-profile -n myserver
 
-# 3. Generate client certificate (replace 'client' with your desired name)
-./3_gen_client_cert.sh client
+# 3. Generate client certificate
+./3_gen_client_cert.sh -p my-profile -n client01
+
+# 4. Revoke a client certificate
+./4_revoke_client.sh -p my-profile -n client01
 ```
 
 For detailed instructions and options, see [certs/README.md](certs/README.md). 
