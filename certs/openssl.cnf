@@ -1,0 +1,93 @@
+# OpenSSL Configuration for CertWiz-mTLS
+
+# This definition stops the following lines choking if HOME isn't defined.
+HOME			= .
+RANDFILE		= $ENV::HOME/.rnd
+
+[ ca ]
+default_ca = CA_default
+
+[ CA_default ]
+dir               = ./db                  # Where everything is kept
+certs             = $dir/certs            # Where the issued certs are kept
+crl_dir           = $dir/crl              # Where the issued crl are kept
+new_certs_dir     = $dir/newcerts         # default place for new certs.
+database          = $dir/index.txt        # database index file.
+serial            = $dir/serial           # The current serial number
+RANDFILE          = $dir/private/.rand    # private random number file
+
+private_key       = ./ca/ca.key           # The private key
+certificate       = ./ca/ca.crt           # The CA certificate
+
+crlnumber         = $dir/crlnumber        # the current crl number
+crl               = ./crl.pem             # The current CRL
+crl_extensions    = crl_ext
+default_crl_days  = 10950                 # how long before next CRL (30 years)
+
+default_days      = 30                    # how long to certify for
+default_md        = sha256                # use public key default MD
+preserve          = no                    # keep passed DN ordering
+
+policy            = policy_loose
+
+# For the 'req' command (generating CSRs)
+[ req ]
+default_bits        = 2048
+distinguished_name  = req_distinguished_name
+string_mask         = utf8only
+default_md          = sha256
+x509_extensions     = v3_ca
+
+[ req_distinguished_name ]
+commonName                      = Common Name (e.g. server FQDN or YOUR name)
+commonName_max                  = 64
+
+# Policy strict - require some fields (not used currently but good for ref)
+[ policy_strict ]
+countryName             = match
+stateOrProvinceName     = match
+organizationName        = match
+organizationalUnitName  = optional
+commonName              = supplied
+emailAddress            = optional
+
+# Policy loose - allow anything (good for internal mTLS)
+[ policy_loose ]
+countryName             = optional
+stateOrProvinceName     = optional
+localityName            = optional
+organizationName        = optional
+organizationalUnitName  = optional
+commonName              = supplied
+emailAddress            = optional
+
+# Extensions for a typical CA
+[ v3_ca ]
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer
+basicConstraints = critical, CA:true
+keyUsage = critical, digitalSignature, cRLSign, keyCertSign
+
+# Extensions for server certificates
+[ server_cert ]
+basicConstraints = CA:FALSE
+nsCertType = server
+nsComment = "OpenSSL Generated Server Certificate"
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer:always
+keyUsage = critical, digitalSignature, keyEncipherment
+extendedKeyUsage = serverAuth
+
+# Extensions for client certificates
+[ client_cert ]
+basicConstraints = CA:FALSE
+nsCertType = client, email
+nsComment = "OpenSSL Generated Client Certificate"
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid,issuer:always
+keyUsage = critical, nonRepudiation, digitalSignature, keyEncipherment
+extendedKeyUsage = clientAuth
+
+# Extension for CRLs
+[ crl_ext ]
+authorityKeyIdentifier=keyid:always

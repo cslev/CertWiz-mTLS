@@ -9,26 +9,32 @@ echo ""
 # Default values
 VALIDITY_DAYS=30
 CLIENT_NAME=""
+PROFILE=""
+ENCRYPT_KEY=true
 
 # Help function
 show_help() {
-    echo "Usage: $0 -n <client_name> [-d <days>]"
+    echo "Usage: $0 -n <client_name> -p <profile_name> [-d <days>] [-u]"
     echo ""
     echo "Options:"
     echo "  -n    Client name (required)"
+    echo "  -p    Profile name (REQUIRED)"
     echo "  -d    Certificate validity in days (default: 30)"
+    echo "  -u    Unencrypted: Generate key without password and P12 with empty password"
     echo "  -h    Show this help message"
     echo ""
     echo "Example:"
-    echo "  $0 -n john-doe -d 365"
+    echo "  $0 -n john-doe -p project-alpha -u"
     exit 1
 }
 
 # Parse command line arguments using getopts
-while getopts "n:d:h" opt; do
+while getopts "n:p:d:uh" opt; do
     case $opt in
         n) CLIENT_NAME="$OPTARG" ;;
+        p) PROFILE="$OPTARG" ;;
         d) VALIDITY_DAYS="$OPTARG" ;;
+        u) ENCRYPT_KEY=false ;;
         h) show_help ;;
         \?) echo "❌ Invalid option: -$OPTARG"; show_help ;;
     esac
@@ -40,29 +46,45 @@ if [[ -z "$CLIENT_NAME" ]]; then
     show_help
 fi
 
+if [[ -z "$PROFILE" ]]; then
+    echo "❌ Error: Profile name is required!"
+    show_help
+fi
+
 # Set up directories
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CA_DIR="$SCRIPT_DIR/ca"
-CLIENT_DIR="$SCRIPT_DIR/client"
-mkdir -p "$CLIENT_DIR"
+PROFILE_DIR="$SCRIPT_DIR/$PROFILE"
+CA_DIR="$PROFILE_DIR/ca"
+CLIENT_DIR="$PROFILE_DIR/client"
 
-echo "📁 Output directory: $CLIENT_DIR"
-echo "📁 CA directory: $CA_DIR"
-echo "👤 Client name: $CLIENT_NAME"
-echo ""
+echo "🔧 Using Profile: $PROFILE"
 
-# Check if CA files exist
+# Check if CA exists
 if [ ! -f "$CA_DIR/ca.crt" ] || [ ! -f "$CA_DIR/ca.key" ]; then
-    echo "❌ Error: CA certificate or key not found!"
-    echo "   Please run 1_gen_ca.sh first to generate the CA."
+    echo "❌ Error: CA files not found in profile '$PROFILE'."
+    echo "   Please run './1_gen_ca.sh -p $PROFILE' first."
     exit 1
 fi
 
-# Generate client private key (with AES-256 encryption)
-echo "🔑 Generating encrypted client private key (2048-bit RSA with AES-256)..."
-openssl genrsa \
-  -aes256 \
-  -out "$CLIENT_DIR/${CLIENT_NAME}.key" 2048
+mkdir -p "$CLIENT_DIR"
+echo "📁 Output directory: $CLIENT_DIR"
+echo "👤 Client name: $CLIENT_NAME"
+echo ""
+
+# Switch to profile dir for Openssl config relative paths
+cd "$PROFILE_DIR"
+
+# Generate client private key
+if [ "$ENCRYPT_KEY" = true ]; then
+    echo "🔑 Generating encrypted client private key (2048-bit RSA with AES-256)..."
+    openssl genrsa \
+      -aes256 \
+      -out "client/${CLIENT_NAME}.key" 2048
+else
+    echo "🔑 Generating UNENCRYPTED client private key (2048-bit RSA)..."
+    openssl genrsa \
+      -out "client/${CLIENT_NAME}.key" 2048
+fi
 
 if [ $? -eq 0 ]; then
     echo "✅ Successfully generated client private key: $CLIENT_DIR/${CLIENT_NAME}.key"
@@ -78,9 +100,9 @@ SUBJ="/CN=${CLIENT_NAME}"
 echo "   - Common Name (CN): ${CLIENT_NAME}"
 openssl req \
   -new \
-  -key "$CLIENT_DIR/${CLIENT_NAME}.key" \
+  -key "client/${CLIENT_NAME}.key" \
   -subj "$SUBJ" \
-  -out "$CLIENT_DIR/${CLIENT_NAME}.csr"
+  -out "client/${CLIENT_NAME}.csr"
 
 if [ $? -eq 0 ]; then
     echo "✅ Successfully created CSR: $CLIENT_DIR/${CLIENT_NAME}.csr"
@@ -92,15 +114,15 @@ fi
 
 # Sign the client certificate with CA
 echo "✍️  Signing client certificate with CA..."
-echo "   - Validity: $VALIDITY_DAYS days"
-openssl x509 \
-  -req \
-  -in "$CLIENT_DIR/${CLIENT_NAME}.csr" \
-  -CA "$CA_DIR/ca.crt" \
-  -CAkey "$CA_DIR/ca.key" \
-  -CAcreateserial \
+openssl ca \
+  -config openssl.cnf \
+  -extensions client_cert \
   -days "$VALIDITY_DAYS" \
-  -out "$CLIENT_DIR/${CLIENT_NAME}.crt"
+  -notext \
+  -md sha256 \
+  -in "client/${CLIENT_NAME}.csr" \
+  -out "client/${CLIENT_NAME}.crt" \
+  -batch
 
 if [ $? -eq 0 ]; then
     echo "✅ Successfully signed client certificate: $CLIENT_DIR/${CLIENT_NAME}.crt"
@@ -113,12 +135,24 @@ fi
 # Create PKCS12 bundle (.p12 file)
 echo "📦 Creating PKCS12 bundle (.p12 file)..."
 echo "   - Including: client certificate, client key, and CA certificate"
-openssl pkcs12 \
-  -export \
-  -out "$CLIENT_DIR/${CLIENT_NAME}.p12" \
-  -inkey "$CLIENT_DIR/${CLIENT_NAME}.key" \
-  -in "$CLIENT_DIR/${CLIENT_NAME}.crt" \
-  -certfile "$CA_DIR/ca.crt"
+
+if [ "$ENCRYPT_KEY" = true ]; then
+    openssl pkcs12 \
+      -export \
+      -out "client/${CLIENT_NAME}.p12" \
+      -inkey "client/${CLIENT_NAME}.key" \
+      -in "client/${CLIENT_NAME}.crt" \
+      -certfile "ca/ca.crt"
+else
+    # Create P12 with empty export password for full automation support
+    openssl pkcs12 \
+      -export \
+      -out "client/${CLIENT_NAME}.p12" \
+      -inkey "client/${CLIENT_NAME}.key" \
+      -in "client/${CLIENT_NAME}.crt" \
+      -certfile "ca/ca.crt" \
+      -passout pass:
+fi
 
 if [ $? -eq 0 ]; then
     echo "✅ Successfully created PKCS12 bundle: $CLIENT_DIR/${CLIENT_NAME}.p12"
@@ -132,7 +166,7 @@ echo "=========================================="
 echo "✅ Client certificate generation complete!"
 echo "=========================================="
 echo ""
-echo "📦 Generated files:"
+echo "📦 Generated files for profile '$PROFILE':"
 echo "   - Private key: $CLIENT_DIR/${CLIENT_NAME}.key"
 echo "   - CSR:         $CLIENT_DIR/${CLIENT_NAME}.csr"
 echo "   - Certificate: $CLIENT_DIR/${CLIENT_NAME}.crt"
@@ -143,7 +177,7 @@ echo ""
 echo "📋 Client Certificate Details:"
 echo "=========================================="
 openssl x509 \
-  -in "$CLIENT_DIR/${CLIENT_NAME}.crt" \
+  -in "client/${CLIENT_NAME}.crt" \
   -text \
   -noout
 
